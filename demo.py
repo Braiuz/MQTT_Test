@@ -13,7 +13,7 @@ def ConnectMQTT():
     client = MQTTClient(
         client_id=b"RaspberryPiPicoW",
         server=constants.SERVER_HOSTNAME,
-        port=8883,
+        port=costants.SERVER_PORT, #8883
         user=constants.USER,
         password=constants.PASSWORD,
         keepalive=7200,
