@@ -188,7 +188,7 @@ class BME280:
             # humidity(0xFD): (msb << 8) | lsb
             raw_hum = (readout[6] << 8) | readout[7]
                 
-        else if(self._mode == BME280_MODE_FORCED):
+        elif(self._mode == BME280_MODE_FORCED):
             # write forced mode, check status, save data
             
             # write forced mode
