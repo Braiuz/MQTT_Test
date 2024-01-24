@@ -1,4 +1,4 @@
-# Authors: Paul Cunnane 2016, Peter Dahlebrg 2016
+# Authors: Matteo Braiato 2024,
 #
 # This module borrows from the Adafruit BME280 Python library. Original
 # Copyright notices are reproduced below.
