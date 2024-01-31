@@ -74,6 +74,7 @@ BME280_REGISTER_CONTROL     = 0xF4
 
 BME280_STATUSREG_MEASURE_MASK = 0x08 # bit 3 --> 1 if conv running, 0 if data saved on reg
 
+controlRegCfg = 0
 
 class BME280:
 
@@ -146,11 +147,12 @@ class BME280:
         # load configuration
         controlHumidityCfg = self._hos
         self.i2c.writeto_mem(self.address, BME280_REGISTER_CONTROL_HUM,
-                             bytearray(controlHumidityCfg))
+                             controlHumidityCfg.to_bytes(1, 'big'))
         
+        global controlRegCfg
         controlRegCfg = self._mode + (self._pos << 2) + (self._tos << 5)  
         self.i2c.writeto_mem(self.address, BME280_REGISTER_CONTROL,
-                             bytearray(controlRegCfg))
+                             controlRegCfg.to_bytes(1, 'big'))
         self.t_fine = 0
 
         # temporary data holders which stay allocated
@@ -167,6 +169,11 @@ class BME280:
             Returns:
                 None
         """
+        raw_temp = 0
+        raw_hum = 0
+        raw_press = 0
+        # DEBUG
+        #print("Mode = " + str(self._mode[0])) 
         if(self._mode == BME280_MODE_NORMAL):
             # check status if the read op is done and save data
             
@@ -193,7 +200,7 @@ class BME280:
             
             # write forced mode
             self.i2c.writeto_mem(self.address, BME280_REGISTER_CONTROL,
-                             self._mode)
+                             controlRegCfg.to_bytes(1, 'big'))
             # check status if the read op is done and save data
             self.i2c.readfrom_mem_into(self.address, BME280_REGISTER_STATUS, self._l1_barray)
             status = self._l1_barray[0]
@@ -245,6 +252,7 @@ class BME280:
         """
         self.read_raw_data(self._l3_resultarray)
         raw_temp, raw_press, raw_hum = self._l3_resultarray
+        
         # temperature
         var1 = ((raw_temp >> 3) - (self.dig_T1 << 1)) * (self.dig_T2 >> 11)
         var2 = (((((raw_temp >> 4) - self.dig_T1) *
@@ -294,7 +302,7 @@ class BME280:
         """ human readable values """
 
         t, p, h = self.read_compensated_data()
-
+        
         p = p // 256
         pi = p // 100
         pd = p - pi * 100
@@ -303,3 +311,4 @@ class BME280:
         hd = h * 100 // 1024 - hi * 100
         return ("{}C".format(t / 100), "{}.{:02d}hPa".format(pi, pd),
                 "{}.{:02d}%".format(hi, hd))
+
