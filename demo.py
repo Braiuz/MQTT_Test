@@ -8,14 +8,15 @@ from constants import *
 from connectivity import *
 
 DEBUG = True # False to suppres print and led debug
-         
+client = None         
          
 def Demo_Init():
     global sensor
     global led
+    global client
     led = Led()
     led.blink(led.LED_SLOW_PERIOD_MS)
-    #client = MakeConnections()
+    client = MakeConnections()
     i2c=I2C(0, sda=Pin(I2C_SDA_GPIO), scl=Pin(I2C_SCL_GPIO), freq=I2C_FREQ_HZ)
     try:
         sensor = bme280.BME280(i2c=i2c)
@@ -33,13 +34,31 @@ def Demo_Init():
 
 
 def Demo_Task():
-    global measured
-    global led
+
+    global client
+
+    jsonData = SensorRead()
+
+    try:
+        Publish("TestSensor", jsonData, client)
+        lightsleep(60000)
+    except Exception as e:
+        if not wlan.isconnected():
+            print("WiFi connection lost. Attempting to reconnect...")
+            wlan = ConnectInternet(WLAN_NAME, WLAN_PASSWORD)
+            client = ReconnectMqtt(client)
+        else:
+            client = ReconnectMqtt(client)
     
+
+def SensorRead():
     global temp
     global press
     global hum
-    
+
+    global measured
+    global led
+
     while (not measured):
         try:
             temp, press, hum = sensor.values
@@ -50,14 +69,13 @@ def Demo_Task():
             if(True == DEBUG):
                 print('Failed to read sensor.')
                 led.blink(LED_FAST_PERIOD_MS)
-            while(True):
-                time.sleep(1)
+                time.sleep(5)
+            # wait and then try again, keep the old sensor values    
+            time.sleep(1)
     measured = False
     timestamp = time.time()
     # Json encode
     sensorData = {"timestamp":timestamp, "temperature":temp, "pressure":press, "humidity":hum}
     jsonData = ujson.dumps(sensorData)
-    Publish("TestSensor", jsonData, client)
-    
-    lightsleep(5000)
-    
+
+    return jsonData

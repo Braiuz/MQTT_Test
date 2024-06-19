@@ -21,16 +21,18 @@ def ConnectMQTT():
         ssl_params={'server_hostname': SERVER_HOSTNAME}
     )
     client.set_last_will(topic=CONN_LAST_WILL_TOPIC, msg=CONN_LAST_WILL_MSG, retain=False)
-    try:
-        client.connect(clean_session=False) # False --> persistent session
-    except ConnectionAbortedError:
-        print("Error while connecting to MQTT broker. Check if broker is reachable and if credentials are valid")
-        FaultHandling()
-    except Exception as e:
-        print("Unknown error")
-        raise e
-        
-    return client
+    max_attempts = 10
+    attempt = 0
+    while attempt < max_attempts:
+        try:
+            client.connect(clean_session=False) # False --> persistent session
+            return client
+        except Exception as e:
+            print("MQTT error")
+            attempt += 1
+            time.sleep(2*attempt)
+
+        raise RuntimeError("Failed to connect to MQTT broker")
 
 
 def ConnectInternet(ssid, password):
@@ -43,16 +45,17 @@ def ConnectInternet(ssid, password):
     
     # Wait for connect or fail
     max_wait = 10
-    while max_wait > 0:
+    attempt = 0
+    while attempt > max_wait:
       if wlan.status() < 0 or wlan.status() >= 3:
         break
-      max_wait -= 1
+      attempt += 1
       print('Waiting for connection...')
-      time.sleep(1)
+      time.sleep(2*attempt)
     # Handle connection error
     if wlan.status() != 3:
        print(wlan.status())
-       raise RuntimeError('Network connection failed')
+       raise RuntimeError('Failed to connect to WiFi')
     else:
       print('Connected to wlan')
       #print("Wlan status = " + str(wlan.status()))
@@ -70,9 +73,24 @@ def MakeConnections():
 def Publish(topic, value, client):
     '''Sends data to the broker'''
     print(f"[PUBLISH] - [{topic}]: {value}")
-    client.publish(topic, value)
-    print("Done")
+    try:
+        client.publish(topic, value)
+        print("Done")
+    except Exception as e:
+        print(f"Failed to publish data: {e}")
+        client = ReconnectMqtt(client)
     
+
+def ReconnectMqtt(client: MQTTClient):
+    client.disconnect()
+    while True:
+        try:
+            client = ConnectMQTT()
+            print("Reconnected to MQTT broker")
+            return client
+        except Exception as e:
+            print(f"Reconnection attempt failed:{e}")
+            time.sleep(5)
 
 # Stop wifi to save power
 def StopWiFi(wlan, client: MQTTClient):    # network.WLAN
